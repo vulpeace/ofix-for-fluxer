@@ -1,4 +1,5 @@
 .env
 .git
+.github
 node_modules
 data
