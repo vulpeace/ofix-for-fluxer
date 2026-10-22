@@ -1,5 +1,4 @@
 .env
 .git
 node_modules
-lastUpdate.json
-config.json
+data
