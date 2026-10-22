@@ -1,6 +1,7 @@
 import { Client, Events } from "@fluxerjs/core";
 import { parseOnlineFixUpdates } from "./parser.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 import "dotenv/config";
 
 let id = "";
@@ -12,8 +13,11 @@ try {
   lastUpdate = JSON.parse(await readFile("./data/lastUpdate.json", "utf-8"));
 } catch {}
 
+const POLL_INTERVAL = 300000;
+const MESSAGE_INTERVAL = 1500;
+
 async function startPolling(channel) {
-  setInterval(async () => {
+  const poll = async () => {
     try {
       const updatedGames = await parseOnlineFixUpdates();
       for (let updatedGame of updatedGames) {
@@ -24,6 +28,7 @@ async function startPolling(channel) {
           await channel.send(
             `Update:\n- title: ${updatedGame.title}\n- link: ${updatedGame.link}\n- reason: ${updatedGame.reason}`,
           );
+          await sleep(MESSAGE_INTERVAL);
         }
       }
       lastUpdate = updatedGames;
@@ -34,8 +39,11 @@ async function startPolling(channel) {
       );
     } catch (e) {
       console.error(e.message);
+    } finally {
+      setTimeout(poll, POLL_INTERVAL);
     }
-  }, 10000);
+  };
+  setTimeout(poll, POLL_INTERVAL);
 }
 
 try {
