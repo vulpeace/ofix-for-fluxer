@@ -1,0 +1,4 @@
+.env
+node_modules
+lastUpdate.json
+config.json

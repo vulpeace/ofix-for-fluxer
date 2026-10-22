@@ -1,0 +1,38 @@
+{
+  "name": "ofix-for-fluxer",
+  "version": "1.0.0",
+  "description": "A bot for Fluxer that notifies about Online Fix releases",
+  "main": "index.js",
+  "scripts": {
+    "format": "prettier --write src/",
+    "start": "node src/bot.js"
+  },
+  "keywords": [],
+  "author": {
+    "name": "vulpeace",
+    "email": "35395586+vulpeace@users.noreply.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/vulpeace/ofix-for-fluxer.git"
+  },
+  "license": "MIT",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.14.0",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.14.0",
+  "type": "module",
+  "dependencies": {
+    "@fluxerjs/core": "^3.3.0",
+    "cheerio": "^1.2.0",
+    "dotenv": "^18.0.8",
+    "iconv-lite": "^0.7.3"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
+  }
+}
