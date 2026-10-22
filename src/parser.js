@@ -26,6 +26,7 @@ export async function parseOnlineFixUpdates() {
     const $ = cheerio.load(html);
     const news = $("div .article.clr").children();
     const newsArray = news.toArray();
+    newsArray.reverse();
     for (let i = 0; i < newsArray.length; i += 2) {
       const img = newsArray[i].children.find(
         (child) => child.attribs?.class === "img",
