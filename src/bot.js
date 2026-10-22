@@ -21,7 +21,7 @@ async function startPolling(channel) {
           !lastUpdate.find((game) => game.link === updatedGame.link)
         ) {
           await channel.send(
-            `New update:\n- title: ${updatedGame.title}\n- game: ${updatedGame.link}\n- reason: ${updatedGame.reason}`,
+            `Update:\n- title: ${updatedGame.title}\n- link: ${updatedGame.link}\n- reason: ${updatedGame.reason}`,
           );
         }
       }
