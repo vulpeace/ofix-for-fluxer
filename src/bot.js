@@ -1,11 +1,12 @@
 import { Client, Events } from "@fluxerjs/core";
 import { parseOnlineFixUpdates } from "./parser.js";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import "dotenv/config";
 
 let id = "";
 let lastUpdate;
 try {
+  await mkdir("./data", { recursive: true });
   const config = JSON.parse(await readFile("./data/config.json", "utf-8"));
   id = config?.channelId;
   lastUpdate = JSON.parse(await readFile("./data/lastUpdate.json", "utf-8"));
@@ -26,26 +27,33 @@ async function startPolling(channel) {
         }
       }
       lastUpdate = updatedGames;
-      await writeFile("./data/lastUpdate.json", JSON.stringify(lastUpdate), "utf-8");
+      await writeFile(
+        "./data/lastUpdate.json",
+        JSON.stringify(lastUpdate),
+        "utf-8",
+      );
     } catch (e) {
       console.error(e.message);
     }
-  }, 60000);
+  }, 10000);
 }
 
 try {
-  const client = await Client.fromDiscovery(
-    process.env.FLUXER_INSTANCE ?? "https://fluxer.com",
-    { waitForGuilds: true },
-  );
+  const instanceUrl = process.env.FLUXER_INSTANCE ?? "https://fluxer.com";
+  const client = await Client.fromDiscovery(instanceUrl, {
+    waitForGuilds: true,
+  });
 
   client.once(Events.Ready, async () => {
-    console.log("Ready!");
-
     console.log(`Bot is in ${client.guilds.size} guild(s)`);
     for (const [, guild] of client.guilds) {
       console.log(`- ${guild.name}: ${guild.channels.size} channel(s)`);
     }
+
+    const app = await client.fetchApplication();
+    console.log(`Add to new guilds by following the link:\n
+      ${instanceUrl}/oauth2/authorize?client_id=${app.id}&scope=bot&permissions=19456
+    `);
 
     if (id) {
       const channel = await client.channels.fetch(id);
@@ -59,11 +67,13 @@ try {
       return;
     }
 
-    console.log(`
-      No channel configured,
-      send !online-fix.set in a channel
-      you want the bot to send updates to
-    `);
+    console.log(
+      "No channel configured, send\n" +
+        `
+      !online-fix.set
+      ` +
+        "\nin a channel you want the bot to send updates to",
+    );
 
     const handler = async (message) => {
       if (message.author.bot) return;
