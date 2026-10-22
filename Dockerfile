@@ -1,7 +1,7 @@
 FROM node:lts-alpine
 RUN npm install -g pnpm@12.14.0
 WORKDIR /app
-RUN chown node:node /app
+RUN mkdir -p /app/data && chown -R node:node /app
 USER node
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store,uid=1000,gid=1000 \
     --mount=type=bind,source=package.json,target=package.json \

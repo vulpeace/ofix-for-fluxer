@@ -6,9 +6,9 @@ import "dotenv/config";
 let id = "";
 let lastUpdate;
 try {
-  const config = JSON.parse(await readFile("config.json", "utf-8"));
+  const config = JSON.parse(await readFile("./data/config.json", "utf-8"));
   id = config?.channelId;
-  lastUpdate = JSON.parse(await readFile("lastUpdate.json", "utf-8"));
+  lastUpdate = JSON.parse(await readFile("./data/lastUpdate.json", "utf-8"));
 } catch {}
 
 async function startPolling(channel) {
@@ -26,7 +26,7 @@ async function startPolling(channel) {
         }
       }
       lastUpdate = updatedGames;
-      await writeFile("lastUpdate.json", JSON.stringify(lastUpdate), "utf-8");
+      await writeFile("./data/lastUpdate.json", JSON.stringify(lastUpdate), "utf-8");
     } catch (e) {
       console.error(e.message);
     }
@@ -78,7 +78,7 @@ try {
 
       id = channel.id;
       await writeFile(
-        "config.json",
+        "./data/config.json",
         JSON.stringify({ channelId: id }),
         "utf-8",
       );
