@@ -1,42 +1,97 @@
-import { Client, Events } from "@fluxerjs/core";
+import { Client, ErrorCodes, Events, PermissionFlags } from "@fluxerjs/core";
 import { parseOnlineFixUpdates } from "./parser.js";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import * as db from "./db.js";
 import { setTimeout as sleep } from "node:timers/promises";
 import "dotenv/config";
 
-let id = "";
-let lastUpdate;
-try {
-  await mkdir("./data", { recursive: true });
-  const config = JSON.parse(await readFile("./data/config.json", "utf-8"));
-  id = config?.channelId;
-  lastUpdate = JSON.parse(await readFile("./data/lastUpdate.json", "utf-8"));
-} catch {}
-
 const POLL_INTERVAL = 300000;
-const MESSAGE_INTERVAL = 1500;
+const MESSAGE_INTERVAL = 1000;
+const MAX_SEND_ATTEMPTS = 5;
 
-async function startPolling(channel) {
-  const poll = async () => {
+let lastUpdate;
+
+function isChannelGone(e) {
+  return (
+    e.code === ErrorCodes.ChannelNotFound ||
+    (e.statusCode ?? e.cause?.statusCode) === 404
+  );
+}
+
+function rateLimitDelay(e) {
+  const err = e.statusCode === 429 ? e : e.cause;
+  if (err?.statusCode !== 429) return undefined;
+  return Math.max((err.retryAfter ?? 0) * 1000, MESSAGE_INTERVAL);
+}
+
+async function sendWithRetry(channel, content) {
+  for (let attempt = 1; ; attempt++) {
     try {
-      const updatedGames = await parseOnlineFixUpdates();
-      for (let updatedGame of updatedGames) {
-        if (
-          !lastUpdate ||
-          !lastUpdate.find((game) => game.link === updatedGame.link)
-        ) {
-          await channel.send(
-            `Update:\n- title: ${updatedGame.title}\n- link: ${updatedGame.link}\n- reason: ${updatedGame.reason}`,
+      return await channel.send(content);
+    } catch (e) {
+      const delay = rateLimitDelay(e);
+      if (delay === undefined || attempt >= MAX_SEND_ATTEMPTS) throw e;
+      await sleep(delay);
+    }
+  }
+}
+
+async function dropDeletedChannels(client) {
+  for (const { guildId, channelId } of db.getSubscriptions()) {
+    try {
+      await client.channels.fetch(channelId);
+    } catch (e) {
+      if (isChannelGone(e)) {
+        db.removeGuild(guildId);
+        console.log(`Removed deleted channel ${channelId} (guild ${guildId})`);
+      } else {
+        console.error(`Failed to check channel ${channelId}: ${e.message}`);
+      }
+    }
+  }
+}
+
+async function broadcast(client, games) {
+  await Promise.all(
+    db.getSubscriptions().map(async ({ guildId, channelId }) => {
+      try {
+        const channel = await client.channels.resolve(channelId);
+        for (const game of games) {
+          await sendWithRetry(
+            channel,
+            `Update:\n- title: ${game.title}\n- link: ${game.link}\n- reason: ${game.reason}`,
           );
           await sleep(MESSAGE_INTERVAL);
         }
+      } catch (e) {
+        if (isChannelGone(e)) {
+          db.removeGuild(guildId);
+          console.log(
+            `Removed deleted channel ${channelId} (guild ${guildId})`,
+          );
+        } else {
+          console.error(`Failed to notify channel ${channelId}: ${e.message}`);
+        }
       }
-      lastUpdate = updatedGames;
-      await writeFile(
-        "./data/lastUpdate.json",
-        JSON.stringify(lastUpdate),
-        "utf-8",
+    }),
+  );
+}
+
+function startPolling(client) {
+  const poll = async () => {
+    try {
+      const updatedGames = await parseOnlineFixUpdates();
+      const newGames = updatedGames.filter(
+        (updatedGame) =>
+          !lastUpdate ||
+          !lastUpdate.find((game) => game.link === updatedGame.link),
       );
+
+      lastUpdate = updatedGames;
+      db.setLastUpdate(lastUpdate);
+
+      if (newGames.length > 0) {
+        await broadcast(client, newGames);
+      }
     } catch (e) {
       console.error(e.message);
     } finally {
@@ -44,6 +99,43 @@ async function startPolling(channel) {
     }
   };
   setTimeout(poll, POLL_INTERVAL);
+}
+
+async function handleCommand(message) {
+  if (message.author.bot) return;
+  const command = message.content.trim();
+  if (command !== "!online-fix.set" && command !== "!online-fix.unset") return;
+
+  if (!message.guildId) {
+    await message.reply("This command only works in servers");
+    return;
+  }
+
+  const guild = await message.resolveGuild();
+  const member = await guild.members.resolve(message.author.id);
+  if (!member.permissions.has(PermissionFlags.ManageGuild)) {
+    await message.reply("You need the Manage Server permission to do that");
+    return;
+  }
+
+  if (command === "!online-fix.unset") {
+    const removed = db.removeGuild(message.guildId);
+    await message.reply(
+      removed
+        ? "Will no longer notify about updates in this server"
+        : "No channel is configured in this server",
+    );
+    return;
+  }
+
+  const channel = await message.resolveChannel();
+  if (!channel.isTextBased()) {
+    await message.reply(`Invalid channel`);
+    return;
+  }
+
+  db.setSubscription(message.guildId, channel.id);
+  await message.reply(`Will notify about updates in channel ${channel.id}!`);
 }
 
 try {
@@ -63,49 +155,38 @@ try {
       ${instanceUrl}/oauth2/authorize?client_id=${app.id}&scope=bot&permissions=19456
     `);
 
-    if (id) {
-      const channel = await client.channels.fetch(id);
+    await dropDeletedChannels(client);
+    lastUpdate = db.getLastUpdate();
 
-      if (!channel || !channel.isTextBased()) {
-        console.error(`Invalid channel specified in config.json: ${id}`);
-        process.exit(1);
+    client.on(Events.MessageCreate, async (message) => {
+      try {
+        await handleCommand(message);
+      } catch (e) {
+        console.error(`Failed to handle command: ${e.message}`);
       }
+    });
 
-      await startPolling(channel);
-      return;
-    }
+    client.on(Events.ChannelDelete, (channel) => {
+      if (db.removeChannel(channel.id)) {
+        console.log(`Removed deleted channel ${channel.id}`);
+      }
+    });
+
+    client.on(Events.GuildDelete, (guild) => {
+      if (db.removeGuild(guild.id)) {
+        console.log(`Removed guild ${guild.id} the bot is no longer in`);
+      }
+    });
 
     console.log(
-      "No channel configured, send\n" +
+      `Notifying ${db.getSubscriptions().length} channel(s), send\n` +
         `
       !online-fix.set
       ` +
         "\nin a channel you want the bot to send updates to",
     );
 
-    const handler = async (message) => {
-      if (message.author.bot) return;
-      if (message.content.trim() !== "!online-fix.set") return;
-
-      const channel = await message.resolveChannel();
-
-      if (!channel || !channel.isTextBased()) {
-        await message.reply(`Invalid channel`);
-        return;
-      }
-
-      id = channel.id;
-      await writeFile(
-        "./data/config.json",
-        JSON.stringify({ channelId: id }),
-        "utf-8",
-      );
-      client.off(Events.MessageCreate, handler);
-
-      await message.reply(`Will notify about updates in channel ${id}!`);
-      await startPolling(channel);
-    };
-    client.on(Events.MessageCreate, handler);
+    startPolling(client);
   });
 
   const token = process.env.FLUXER_BOT_TOKEN;
