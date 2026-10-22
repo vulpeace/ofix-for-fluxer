@@ -3,7 +3,8 @@ import * as iconv from "iconv-lite";
 import { Readable } from "node:stream";
 import { parseOFixUrl } from "./util.js";
 
-const BASE_URL = parseOFixUrl() ?? "https://online-fix.me";
+const BASE_URL = parseOFixUrl();
+console.log(BASE_URL);
 
 async function fetchHtml(html) {
   return new Promise(async (resolve, reject) => {

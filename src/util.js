@@ -8,8 +8,10 @@ export function parseOFixUrl() {
       if (/[\/\\]$/.test(baseUrl)) {
         baseUrl = baseUrl.slice(0, baseUrl.length - 1);
       }
+      URL.parse(baseUrl);
+    } else {
+      baseUrl = "https://online-fix.me";
     }
-    URL.parse(baseUrl);
     return baseUrl;
   } catch (e) {
     console.error(e.message);
