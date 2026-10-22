@@ -1,22 +1,9 @@
 import * as cheerio from "cheerio";
 import * as iconv from "iconv-lite";
 import { Readable } from "node:stream";
+import { parseOFixUrl } from "./util.js";
 
-let baseUrl = "";
-try {
-  if (process.env.BASE_URL) {
-    baseUrl = process.env.BASE_URL;
-    if (/[\/\\]$/.test(baseUrl)) {
-      baseUrl = baseUrl.slice(0, baseUrl.length - 1);
-    }
-  }
-  URL.parse(baseUrl);
-} catch (e) {
-  console.error(e.message);
-  process.exit(1);
-}
-
-const BASE_URL = baseUrl ?? "https://online-fix.me";
+const BASE_URL = parseOFixUrl() ?? "https://online-fix.me";
 
 async function fetchHtml(html) {
   return new Promise(async (resolve, reject) => {
