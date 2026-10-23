@@ -144,6 +144,10 @@ try {
     waitForGuilds: true,
   });
 
+  client.on(Events.Error, (e) => {
+    console.error(`Fluxer client error: ${e.message}`);
+  });
+
   client.once(Events.Ready, async () => {
     console.log(`Bot is in ${client.guilds.size} guild(s)`);
     for (const [, guild] of client.guilds) {
