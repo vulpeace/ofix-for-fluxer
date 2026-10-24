@@ -83,7 +83,11 @@ function startPolling(client) {
       const newGames = updatedGames.filter(
         (updatedGame) =>
           !lastUpdate ||
-          !lastUpdate.find((game) => game.link === updatedGame.link),
+          !lastUpdate.find(
+            (game) =>
+              game.title === updatedGame.title &&
+              game.reason === updatedGame.reason,
+          ),
       );
 
       lastUpdate = updatedGames;
