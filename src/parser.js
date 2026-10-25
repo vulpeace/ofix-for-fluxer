@@ -7,7 +7,7 @@ const BASE_URL = parseOFixUrl();
 const FETCH_TIMEOUT = 30000;
 
 async function fetchHtml() {
-  const res = await fetch(BASE_URL + "/guides_upd.html", {
+  const res = await fetch(BASE_URL, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT),
   });
   if (!res.ok) {
@@ -46,7 +46,7 @@ export async function parseOnlineFixUpdates() {
       games.push({
         title,
         link: BASE_URL + link,
-        reason: data,
+        reason: data || "initial release on Online Fix",
       });
     }
   }
