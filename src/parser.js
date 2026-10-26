@@ -32,5 +32,10 @@ export async function parseOnlineFixUpdates() {
       });
     }
   }
+if (games.length === 0) {
+    throw new Error(
+      "Found 0 releases on the 1st page, the website might have changed its layout",
+    );
+  }
   return games.toReversed();
 }
