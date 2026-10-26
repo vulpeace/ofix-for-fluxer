@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import * as iconv from "iconv-lite";
 import { parseOFixUrl } from "./util.js";
 
-const BASE_URL = parseOFixUrl();
+const BASE_URL = await parseOFixUrl();
 
 const FETCH_TIMEOUT = 30000;
 

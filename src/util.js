@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-export function parseOFixUrl() {
+export async function parseOFixUrl() {
   let baseUrl = "";
   try {
     if (process.env.OFIX_BASE_URL) {
@@ -12,6 +12,11 @@ export function parseOFixUrl() {
     } else {
       baseUrl = "https://online-fix.me";
     }
+    const testRes = await fetch(baseUrl);
+    if (!testRes.ok)
+      throw new Error(
+        `Could not access ${baseUrl} during the test, status code: ${testRes.status}`,
+      );
     return baseUrl;
   } catch (e) {
     console.error(e.message);
