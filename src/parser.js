@@ -22,33 +22,15 @@ export async function parseOnlineFixUpdates() {
   let games = [];
   if (html) {
     const $ = cheerio.load(html);
-    const news = $("div .news-flex").children();
-    const newsArray = news.toArray();
-    newsArray.reverse();
-    for (let item of newsArray) {
-      const article = item.children.find(
-        (child) => child.attribs?.class === "article clr",
-      );
-      const articleContent = article.children.find(
-        (child) => child.attribs?.class === "article-content",
-      );
-      const a = articleContent.children.find((child) => child.tagName === "a");
-      const edit = articleContent.children.find(
-        (child) => child.attribs?.class === "edit",
-      );
-      const title = a.children
-        .find((child) => child.attribs?.class === "title")
-        .children[0].data.trim();
-      const link = a.attribs.href;
-      const data = edit.children
-        .find((child) => child.type === "text")
-        .data.trim();
+    for (const el of $(".article.clr").toArray().reverse()) {
+      const content = $(el).find(".article-content");
+      const a = content.children("a").first();
       games.push({
-        title,
-        link: BASE_URL + link,
-        reason: data || "initial release on Online Fix",
+        title: a.find(".title").text().trim(),
+        link: a.attr("href"),
+        reason: content.children(".edit").text().trim() || "initial release",
       });
     }
   }
-  return games;
+  return games.toReversed();
 }
