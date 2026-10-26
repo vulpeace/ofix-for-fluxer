@@ -8,7 +8,7 @@ const POLL_INTERVAL = 300000;
 const MESSAGE_INTERVAL = 1000;
 const MAX_SEND_ATTEMPTS = 5;
 
-let lastUpdate;
+let lastUpdate = [];
 
 function isChannelGone(e) {
   return (
@@ -76,33 +76,31 @@ async function broadcast(client, games) {
   );
 }
 
-function startPolling(client) {
-  const poll = async () => {
-    try {
-      const updatedGames = await parseOnlineFixUpdates();
-      const newGames = updatedGames.filter(
-        (updatedGame) =>
-          !lastUpdate ||
-          !lastUpdate.find(
-            (game) =>
-              game.title === updatedGame.title &&
-              game.reason === updatedGame.reason,
-          ),
-      );
+async function pollRecursively(client) {
+  try {
+    const updatedGames = await parseOnlineFixUpdates();
+    const newGames = updatedGames.filter(
+      (updatedGame) =>
+        !lastUpdate ||
+        lastUpdate.length === 0 ||
+        !lastUpdate.find(
+          (game) =>
+            game.title === updatedGame.title &&
+            game.reason === updatedGame.reason,
+        ),
+    );
 
-      lastUpdate = updatedGames;
-      db.setLastUpdate(lastUpdate);
+    lastUpdate = updatedGames;
+    db.setLastUpdate(lastUpdate);
 
-      if (newGames.length > 0) {
-        await broadcast(client, newGames);
-      }
-    } catch (e) {
-      console.error(e.message);
-    } finally {
-      setTimeout(poll, POLL_INTERVAL);
+    if (newGames.length > 0) {
+      await broadcast(client, newGames);
     }
-  };
-  setTimeout(poll, POLL_INTERVAL);
+  } catch (e) {
+    console.error(e.message);
+  } finally {
+    setTimeout(pollRecursively, POLL_INTERVAL);
+  }
 }
 
 async function handleCommand(message) {
@@ -194,7 +192,7 @@ try {
         "\nin a channel you want the bot to send updates to",
     );
 
-    startPolling(client);
+    pollRecursively(client);
   });
 
   const token = process.env.FLUXER_BOT_TOKEN;
