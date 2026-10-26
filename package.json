@@ -1,6 +1,6 @@
 {
   "name": "ofix-for-fluxer",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "A bot for Fluxer that notifies about Online Fix releases",
   "main": "index.js",
   "scripts": {
