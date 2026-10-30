@@ -158,10 +158,12 @@ try {
   });
 
   client.once(Events.Ready, async () => {
-    console.log(`Bot is in ${client.guilds.size} guild(s)`);
+    let activeGuildsMessage = `Bot is in ${client.guilds.size} guild(s)`;
     for (const [, guild] of client.guilds) {
-      console.log(`- ${guild.name}: ${guild.channels.size} channel(s)`);
+      activeGuildsMessage += `\n      - ${guild.name}: ${guild.channels.size} channel(s)`;
     }
+
+    console.log(activeGuildsMessage);
 
     const app = await client.fetchApplication();
     console.log(`Add to new guilds by following the link:\n
