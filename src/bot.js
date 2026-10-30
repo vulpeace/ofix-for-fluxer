@@ -1,3 +1,4 @@
+import "./log.js";
 import { Client, ErrorCodes, Events, PermissionFlags } from "@fluxerjs/core";
 import { parseOnlineFixUpdates } from "./parser.js";
 import * as db from "./db.js";
