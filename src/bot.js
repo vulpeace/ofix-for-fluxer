@@ -50,29 +50,36 @@ async function dropDeletedChannels(client) {
   }
 }
 
-async function broadcast(client, games) {
+async function broadcast(client) {
   await Promise.all(
-    db.getSubscriptions().map(async ({ guildId, channelId }) => {
-      try {
-        const channel = await client.channels.resolve(channelId);
-        for (const game of games) {
-          await sendWithRetry(
-            channel,
-            `Update:\n- title: ${game.title}\n- link: ${game.link}\n- reason: ${game.reason}`,
-          );
-          await sleep(MESSAGE_INTERVAL);
+    db
+      .getPendingSubscriptions()
+      .map(async ({ guildId, channelId, needsRetry }) => {
+        try {
+          const channel = await client.channels.resolve(channelId);
+          while (needsRetry.length > 0) {
+            const game = needsRetry[0];
+            await sendWithRetry(
+              channel,
+              `Update:\n- title: ${game.title}\n- link: ${game.link}\n- reason: ${game.reason}`,
+            );
+            needsRetry.shift();
+            db.setNeedsRetry(guildId, needsRetry);
+            await sleep(MESSAGE_INTERVAL);
+          }
+        } catch (e) {
+          if (isChannelGone(e)) {
+            db.removeGuild(guildId);
+            console.log(
+              `Removed deleted channel ${channelId} (guild ${guildId})`,
+            );
+          } else {
+            console.error(
+              `Failed to notify channel ${channelId}: ${e.message}`,
+            );
+          }
         }
-      } catch (e) {
-        if (isChannelGone(e)) {
-          db.removeGuild(guildId);
-          console.log(
-            `Removed deleted channel ${channelId} (guild ${guildId})`,
-          );
-        } else {
-          console.error(`Failed to notify channel ${channelId}: ${e.message}`);
-        }
-      }
-    }),
+      }),
   );
 }
 
@@ -90,12 +97,11 @@ async function pollRecursively(client) {
         ),
     );
 
-    lastUpdate = updatedGames;
-    db.setLastUpdate(lastUpdate);
-
     if (newGames.length > 0) {
-      await broadcast(client, newGames);
+      lastUpdate = updatedGames;
+      db.setUpdate(lastUpdate, newGames);
     }
+    await broadcast(client);
   } catch (e) {
     console.error(e.message);
   } finally {
